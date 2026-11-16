@@ -62,6 +62,7 @@ try{Object.assign(S,JSON.parse(localStorage.getItem('ewb_set')||'{}'))}catch(e){
 const save=()=>{try{localStorage.setItem('ewb_set',JSON.stringify(S))}catch(e){}};
 const prof=g=>{try{return JSON.parse(localStorage.getItem('ewb_p_'+g)||'null')}catch(e){return null}};
 const saveProf=b=>{try{localStorage.setItem('ewb_p_'+b.gstin,JSON.stringify({toName:b.toName,toAddr:b.toAddr,toPlace:b.toPlace,toPin:b.toPin}))}catch(e){}};
+const STN=Object.fromEntries(Object.entries(ST).map(([k,v])=>[v,k]));
 const r2=n=>Math.round(n*100)/100;
 function build(b){
   const ig=r2(b.items.reduce((a,i)=>a+i.igst,0)),tv=r2(b.items.reduce((a,i)=>a+i.av,0));
@@ -97,15 +98,56 @@ function render(){
    <div class="grid">${f('docNo','Doc No')}${f('date','Doc Date')}<span></span>
    ${f('fromName','Consignor (From)',1)}${f('fromAddr','Consignor address',1)}${f('fromPlace','From place')}
    ${f('toName','Consignee (To)',1)}${f('toAddr','Consignee address',1)}${f('toPlace','To place')}${f('toPin','To pincode')}</div>
-   <button class="ghost" data-dl="${n}">Sirf ye JSON download karo</button></section>`}).join('');
-  $('#all').hidden=!bills.length;$('#all').textContent='Saare '+bills.length+' bill(s) ka JSON download karo';
+   </section>`}).join('');
+  $('#all').hidden=!bills.length;$('#all').textContent='Excel download karo ('+bills.length+' BOE)';
 }
+const UNIT={"BAG":"BAGS","BAL":"BALE","BDL":"BUNDLES","BKL":"BUCKLES","BOU":"BILLION OF UNITS","BOX":"BOX","BTL":"BOTTLES","BUN":"BUNCHES","CAN":"CANS","CBM":"CUBIC METERS","CCM":"CUBIC CENTIMETERS","CMS":"CENTI METERS","CTN":"CARTONS","DOZ":"DOZENS","DRM":"DRUMS","GGK":"GREAT GROSS","GMS":"GRAMMES","GRS":"GROSS","GYD":"GROSS YARDS","KGS":"KILOGRAMS","KLR":"KILOLITRE","KME":"KILOMETRE","LTR":"LITRES","MLT":"MILILITRE","MTR":"METERS","MTS":"METRIC TON","NOS":"NUMBERS","OTH":"OTHERS","PAC":"PACKS","PCS":"PIECES","PRS":"PAIRS","QTL":"QUINTAL","ROL":"ROLLS","SET":"SETS","SQF":"SQUARE FEET","SQM":"SQUARE METERS","SQY":"SQUARE YARDS","TBS":"TABLETS","TGM":"TEN GROSS","THD":"THOUSANDS","TON":"TONNES","TUB":"TUBES","UGS":"US GALLONS","UNT":"UNITS","YDS":"YARDS"};
+const nm=s=>clean(s).replace(/,/g,' ').replace(/\s+/g,' ').trim();
+function exRows(b){
+  const j=build(b),duty=isNaN(b.duty)?b.items.reduce((a,i)=>a+i.igst+i.oth,0):b.duty;
+  const diff=r2(duty-b.items.reduce((a,i)=>a+i.igst+i.oth,0));
+  const h={A:'Inward',B:'Import',C:'Bill of Entry',D:b.docNo,E:b.date,F:nm(b.fromName),G:'URP',H:clean(b.fromAddr).slice(0,120),J:clean(b.fromPlace),K:999999,L:'OTHER COUNTRIES',M:S.disp,
+   N:nm(b.toName),O:b.gstin,P:clean(b.toAddr).slice(0,120),R:clean(b.toPlace),S:+b.toPin,T:STN[j.toStateCode]||'HARYANA',U:STN[j.toStateCode]||'HARYANA',AK:+S.dist||0};
+  if(S.veh){h.AJ='Road';h.AP=S.veh.toUpperCase().replace(/[^A-Z0-9]/g,'');h.AQ='Regular';}
+  if(S.tid){h.AL=clean(S.tname);h.AM=S.tid;}
+  return b.items.map((i,n)=>({...h,V:i.desc.slice(0,100),W:i.desc.slice(0,100),X:+i.hsn,Y:UNIT[i.unit]||i.unit,Z:i.qty,AA:i.av,AB:'0+0+'+i.rate+'+0+0',AC:0,AD:0,AE:i.igst,AF:0,AG:0,AH:i.oth+(n?0:diff),AI:j.totInvValue}));
+}
+const colN=L=>L.split('').reduce((a,c)=>a*26+c.charCodeAt(0)-64,0);
+const colL=n=>{let r='';while(n){const m=(n-1)%26;r=String.fromCharCode(65+m)+r;n=(n-m-1)/26|0;}return r;};
+const xe=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+async function fillTemplate(buf,list){
+  const z=await JSZip.loadAsync(buf);
+  const wb=await z.file('xl/workbook.xml').async('string'),rel=await z.file('xl/_rels/workbook.xml.rels').async('string');
+  const rid=(wb.match(/<sheet [^>]*name="eWayBill"[^>]*r:id="(rId\d+)"/)||[])[1];
+  const tg=rid&&(rel.match(new RegExp('<Relationship [^>]*Id="'+rid+'"[^>]*Target="([^"]+)"'))||rel.match(new RegExp('<Relationship [^>]*Target="([^"]+)"[^>]*Id="'+rid+'"'))||[])[1];
+  if(!tg)throw new Error('Template mein eWayBill sheet nahi mili');
+  const path='xl/'+tg.replace(/^\/?(xl\/)?/,''),f=z.file(path);let s=await f.async('string');
+  const cs={};for(const m of s.matchAll(/<col min="(\d+)" max="(\d+)"[^>]*?style="(\d+)"/g))for(let c=+m[1];c<=Math.min(+m[2],46);c++)cs[c]=m[3];
+  s=s.replace(/<row r="(\d+)"[^>]*>.*?<\/row>/gs,(x,r)=>+r>=4?'':x);
+  let n=4,out='';
+  for(const b of list)for(const d of exRows(b)){
+    let cells='';
+    for(let c=1;c<=43;c++){const L=colL(c);if(d[L]===undefined||d[L]==='')continue;const st=cs[c]||'0',v=d[L];
+      cells+=typeof v==='string'?`<c r="${L}${n}" s="${st}" t="inlineStr"><is><t>${xe(v)}</t></is></c>`:`<c r="${L}${n}" s="${st}"><v>${v}</v></c>`;}
+    out+=`<row r="${n}" spans="1:45">${cells}</row>`;n++;
+  }
+  s=s.replace('</sheetData>',out+'</sheetData>').replace(/<dimension ref="[^"]*"\/>/,`<dimension ref="A1:AS${n-1}"/>`);
+  z.file(path,s);
+  const z2=new JSZip();
+  for(const k of Object.keys(z.files)){const e=z.files[k];if(!e.dir)z2.file(k,await e.async('uint8array'),{date:e.date,createFolders:false});}
+  return z2.generateAsync({type:'uint8array',compression:'DEFLATE'});
+}
+let TPL=null;
+async function loadTpl(){try{const r=await fetch('template.xlsm');if(r.ok)TPL=await r.arrayBuffer();}catch(e){}}
+loadTpl();
 async function dl(list,name){
-  const data=JSON.stringify({version:'1.0.0621',billLists:list.map(build)},null,1);
-  try{const u=URL.createObjectURL(new Blob([data],{type:'application/json'})),l=document.createElement('a');
+  try{
+    if(!TPL){$('#msg').textContent='Template nahi mila — upar "Template choose karo" se EWB_Preparation_Tool .xlsm select karo.';return;}
+    const bytes=await fillTemplate(TPL,list);
+    const u=URL.createObjectURL(new Blob([bytes],{type:'application/vnd.ms-excel.sheet.macroEnabled.12'})),l=document.createElement('a');
     l.href=u;l.download=name;document.body.appendChild(l);l.click();l.remove();setTimeout(()=>URL.revokeObjectURL(u),2000);
-    $('#msg').textContent='Download shuru: '+name;}
-  catch(e){$('#fb').hidden=false;$('#fb textarea').value=data;$('#msg').textContent='Download nahi hua — neeche se JSON copy karke .json file mein save kar lo.';}
+    $('#msg').textContent='Excel download shuru: '+name;
+  }catch(e){$('#msg').textContent='Excel nahi ban paya: '+e.message;}
 }
 async function readPdf(file){
   const pdf=await pdfjsLib.getDocument({data:new Uint8Array(await file.arrayBuffer()),isEvalSupported:false,disableFontFace:true}).promise,pages=[];
@@ -128,8 +170,9 @@ const dz=$('#drop');['dragover','dragenter'].forEach(t=>dz.addEventListener(t,e=
 dz.addEventListener('drop',e=>add([...e.dataTransfer.files].filter(f=>/pdf$/i.test(f.name))));
 $('#out').addEventListener('input',e=>{const t=e.target;if(t.dataset.k){const b=bills[t.dataset.n];b[t.dataset.k]=t.value;if(/^to/.test(t.dataset.k))saveProf(b);}});
 $('#out').addEventListener('change',()=>render());
-$('#out').addEventListener('click',e=>{const t=e.target;if(t.dataset.rm){bills.splice(+t.dataset.rm,1);render();}if(t.dataset.dl){const b=bills[+t.dataset.dl];dl([b],'EWB_'+b.docNo.replace(/\W/g,'')+'.json');}});
-$('#all').onclick=()=>dl(bills,'EWB_bulk_'+bills.length+'_bills.json');
+$('#out').addEventListener('click',e=>{const t=e.target;if(t.dataset.rm){bills.splice(+t.dataset.rm,1);render();}if(t.dataset.dl){const b=bills[+t.dataset.dl];dl([b],'EWB_'+b.docNo.replace(/\W/g,'')+'.xlsm');}});
+$('#all').onclick=()=>dl(bills,'EWB_Prepared_'+bills.length+'_BOE.xlsm');
+$('#tpl').onchange=async e=>{const f=e.target.files[0];if(f){TPL=await f.arrayBuffer();$('#msg').textContent='Template set: '+f.name;}};
 $('#disp').innerHTML=Object.keys(ST).map(s=>`<option ${s===S.disp?'selected':''}>${s}</option>`).join('');
 [['gstin','gstin'],['disp','disp'],['dist','dist'],['tid','tid'],['tname','tname'],['veh','veh'],['src','src']].forEach(([id,k])=>{const el=$('#'+id);el.value=S[k]??'';el.addEventListener('input',()=>{S[k]=el.value;save();});el.addEventListener('change',()=>render());});
 
