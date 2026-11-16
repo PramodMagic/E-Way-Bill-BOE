@@ -57,7 +57,7 @@ function parseBOE(pages){
 }
 
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-let S={disp:'DELHI',dist:20,tid:'',tname:'',veh:'',src:'hawb',gstin:'',mode:'rate'},bills=[];
+let S={disp:'DELHI',dist:20,tid:'',tname:'',veh:'',src:'hawb',gstin:'',mode:'rate',tdate:'today'},bills=[];
 try{Object.assign(S,JSON.parse(localStorage.getItem('ewb_set')||'{}'))}catch(e){}
 const save=()=>{try{localStorage.setItem('ewb_set',JSON.stringify(S))}catch(e){}};
 const prof=g=>{try{return JSON.parse(localStorage.getItem('ewb_p_'+g)||'null')}catch(e){return null}};
@@ -118,6 +118,8 @@ function exRows(b){
   const h={A:'Inward',B:'Import',C:'Bill of Entry',D:b.docNo,E:b.date,F:nm(b.fromName),G:'URP',H:clean(b.fromAddr).slice(0,120),J:clean(b.fromPlace),K:999999,L:'OTHER COUNTRIES',M:S.disp,
    N:nm(b.toName),O:b.gstin,P:clean(b.toAddr).slice(0,120),R:clean(b.toPlace),S:+b.toPin,T:STN[j.toStateCode]||'HARYANA',U:STN[j.toStateCode]||'HARYANA',AK:+S.dist||0};
   if(S.veh){h.AJ='Road';h.AP=S.veh.toUpperCase().replace(/[^A-Z0-9]/g,'');h.AQ='Regular';}
+  if(S.tdate==='today'){const d=new Date(),p=n=>String(n).padStart(2,'0');h.AO=p(d.getDate())+'/'+p(d.getMonth()+1)+'/'+d.getFullYear();}
+  else if(S.tdate==='doc')h.AO=b.date;
   if(S.tid){h.AL=clean(S.tname);h.AM=S.tid;}
   return grp(b.items,S.mode).map((i,n)=>({...h,V:i.desc.slice(0,100),W:i.desc.slice(0,100),X:+i.hsn,Y:UNIT[i.unit]||i.unit,Z:i.qty,AA:i.av,AB:'0+0+'+i.rate+'+0+0',AC:0,AD:0,AE:i.igst,AF:0,AG:0,AH:i.oth+(n?0:diff),AI:j.totInvValue}));
 }
@@ -183,8 +185,8 @@ $('#out').addEventListener('click',e=>{const t=e.target;if(t.dataset.rm){bills.s
 $('#all').onclick=()=>dl(bills,'EWB_Prepared_'+bills.length+'_BOE.xlsm');
 $('#tpl').onchange=async e=>{const f=e.target.files[0];if(f){TPL=await f.arrayBuffer();$('#msg').textContent='Template set: '+f.name;}};
 $('#disp').innerHTML=Object.keys(ST).map(s=>`<option ${s===S.disp?'selected':''}>${s}</option>`).join('');
-[['gstin','gstin'],['disp','disp'],['dist','dist'],['tid','tid'],['tname','tname'],['veh','veh'],['src','src'],['mode','mode']].forEach(([id,k])=>{const el=$('#'+id);el.value=S[k]??'';el.addEventListener('input',()=>{S[k]=el.value;save();});el.addEventListener('change',()=>render());});
+[['gstin','gstin'],['disp','disp'],['dist','dist'],['tid','tid'],['tname','tname'],['veh','veh'],['src','src'],['mode','mode'],['tdate','tdate']].forEach(([id,k])=>{const el=$('#'+id);el.value=S[k]??'';el.addEventListener('input',()=>{S[k]=el.value;save();});el.addEventListener('change',()=>render());});
 
 
-$('#clr').onclick=()=>{try{localStorage.clear()}catch(e){}bills=[];S={disp:'DELHI',dist:20,tid:'',tname:'',veh:'',src:'hawb',gstin:''};['gstin','dist','tid','tname','veh'].forEach(i=>$('#'+i).value='');$('#fb textarea').value='';$('#fb').hidden=true;render();$('#msg').textContent='Saved data aur loaded BOE hata diye.';};
+$('#clr').onclick=()=>{try{localStorage.clear()}catch(e){}bills=[];S={disp:'DELHI',dist:20,tid:'',tname:'',veh:'',src:'hawb',gstin:'',mode:'rate',tdate:'today'};['gstin','dist','tid','tname','veh'].forEach(i=>$('#'+i).value='');$('#fb textarea').value='';$('#fb').hidden=true;render();$('#msg').textContent='Saved data aur loaded BOE hata diye.';};
 window.addEventListener('pagehide',()=>{bills=[];});
