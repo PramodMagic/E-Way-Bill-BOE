@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="hi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="robots" content="noindex,nofollow,noarchive"><meta name="referrer" content="no-referrer"><title>BOE से E-Way Bill JSON</title>
+<link rel="stylesheet" href="style.css"></head><body><main>
+<h1>BOE से E-Way Bill JSON</h1>
+<p class="sub">Courier BOE (CBE-XIII) PDF upload karo, ek ya kai. Har BOE ek e-way bill banta hai, aur sab ek JSON mein aate hain jo portal par bulk upload hota hai.</p>
+<section class="card"><details open><summary>Settings (ek baar bharo, yaad rahengi)</summary><div class="grid">
+<label>Aapka GSTIN (userGstin)<input id="gstin"></label>
+<label>Dispatch State<select id="disp"></select></label>
+<label>Distance (Km)<input id="dist" type="number" min="0"></label>
+<label>Doc No kahan se<select id="src"><option value="hawb">HAWB number</option><option value="cbe">CBE number (aakhri 16)</option></select></label>
+<label>Transporter ID (optional)<input id="tid"></label><label>Transporter Name<input id="tname"></label><label>Vehicle No (optional)<input id="veh"></label></div></details></section>
+<label id="drop" class="btn" style="display:block;color:var(--tx)">BOE PDF yahan drop karo ya <u>choose karo</u><input id="file" type="file" accept="application/pdf" multiple hidden></label>
+<p id="msg"></p><div id="out"></div>
+<button id="all" hidden></button>
+<div id="fb" hidden class="card"><textarea readonly></textarea></div>
+<p class="sub" style="margin-top:14px"><button class="ghost" id="clr">Saved data aur loaded BOE hatao</button><br>Upload se pehle har bill ke fields (address, doc no, date) check kar lena; BOE ke text se address lossy aata hai. Consignee ki edits yaad rakhi jaati hain.</p>
+</main>
+<script src="pdf.min.js"></script>
+<script src="app.js"></script></body></html>
