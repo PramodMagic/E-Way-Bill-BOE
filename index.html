@@ -8,6 +8,7 @@
 <label>Dispatch State<select id="disp"></select></label>
 <label>Distance (Km)<input id="dist" type="number" min="0"></label>
 <label>Doc No kahan se<select id="src"><option value="hawb">HAWB number</option><option value="cbe">CBE number (aakhri 16)</option></select></label>
+<label>Items kaise bharein<select id="mode"><option value="rate">Tax-rate wise (18% / 5% ki alag row)</option><option value="one">Poori HAWB ki 1 row</option><option value="all">Har item alag</option></select></label>
 <label>Transporter ID (optional)<input id="tid"></label><label>Transporter Name<input id="tname"></label><label>Vehicle No (optional)<input id="veh"></label></div></details></section>
 <label id="drop" class="btn" style="display:block;color:var(--tx)">BOE PDF yahan drop karo ya <u>choose karo</u><input id="file" type="file" accept="application/pdf" multiple hidden></label>
 <label class="sub" style="display:block">Template (agar auto-load na ho): <input id="tpl" type="file" accept=".xlsm"></label>

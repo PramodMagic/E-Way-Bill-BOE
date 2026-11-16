@@ -57,7 +57,7 @@ function parseBOE(pages){
 }
 
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-let S={disp:'DELHI',dist:20,tid:'',tname:'',veh:'',src:'hawb',gstin:''},bills=[];
+let S={disp:'DELHI',dist:20,tid:'',tname:'',veh:'',src:'hawb',gstin:'',mode:'rate'},bills=[];
 try{Object.assign(S,JSON.parse(localStorage.getItem('ewb_set')||'{}'))}catch(e){}
 const save=()=>{try{localStorage.setItem('ewb_set',JSON.stringify(S))}catch(e){}};
 const prof=g=>{try{return JSON.parse(localStorage.getItem('ewb_p_'+g)||'null')}catch(e){return null}};
@@ -93,7 +93,7 @@ function render(){
   $('#out').innerHTML=bills.map((b,n)=>{const j=build(b),w=warns(b,j);
    const f=(k,l,wide)=>`<label class="${wide?'w':''}">${l}<input data-n="${n}" data-k="${k}" value="${esc(b[k])}"></label>`;
    return `<section class="card"><div class="row"><b>${esc(b.file)}</b><button class="ghost" data-rm="${n}">Hatao</button></div>
-   <p class="meta">${b.items.length} items · Assessable ₹${j.totalValue} · Duty ₹${isNaN(b.duty)?'?':b.duty} · Invoice value ₹${j.totInvValue} · IGST ₹${j.igstValue} · Others ₹${j.otherValue}</p>
+   <p class="meta">${b.items.length} items (Excel mein ${grp(b.items,S.mode).length} row) · Assessable ₹${j.totalValue} · Duty ₹${isNaN(b.duty)?'?':b.duty} · Invoice value ₹${j.totInvValue} · IGST ₹${j.igstValue} · Others ₹${j.otherValue}</p>
    ${w.map(x=>`<p class="warn">⚠ ${esc(x)}</p>`).join('')}
    <div class="grid">${f('docNo','Doc No')}${f('date','Doc Date')}<span></span>
    ${f('fromName','Consignor (From)',1)}${f('fromAddr','Consignor address',1)}${f('fromPlace','From place')}
@@ -103,6 +103,15 @@ function render(){
 }
 const UNIT={"BAG":"BAGS","BAL":"BALE","BDL":"BUNDLES","BKL":"BUCKLES","BOU":"BILLION OF UNITS","BOX":"BOX","BTL":"BOTTLES","BUN":"BUNCHES","CAN":"CANS","CBM":"CUBIC METERS","CCM":"CUBIC CENTIMETERS","CMS":"CENTI METERS","CTN":"CARTONS","DOZ":"DOZENS","DRM":"DRUMS","GGK":"GREAT GROSS","GMS":"GRAMMES","GRS":"GROSS","GYD":"GROSS YARDS","KGS":"KILOGRAMS","KLR":"KILOLITRE","KME":"KILOMETRE","LTR":"LITRES","MLT":"MILILITRE","MTR":"METERS","MTS":"METRIC TON","NOS":"NUMBERS","OTH":"OTHERS","PAC":"PACKS","PCS":"PIECES","PRS":"PAIRS","QTL":"QUINTAL","ROL":"ROLLS","SET":"SETS","SQF":"SQUARE FEET","SQM":"SQUARE METERS","SQY":"SQUARE YARDS","TBS":"TABLETS","TGM":"TEN GROSS","THD":"THOUSANDS","TON":"TONNES","TUB":"TUBES","UGS":"US GALLONS","UNT":"UNITS","YDS":"YARDS"};
 const nm=s=>clean(s).replace(/,/g,' ').replace(/\s+/g,' ').trim();
+function grp(items,mode){
+  if(mode==='all')return items;
+  const m=new Map();
+  for(const i of items){const k=mode==='one'?'x':i.rate;if(!m.has(k))m.set(k,[]);m.get(k).push(i);}
+  let g=[...m.values()].map(a=>{const t=a.reduce((x,y)=>y.av>x.av?y:x,a[0]);
+    return {hsn:t.hsn,desc:t.desc,unit:t.unit,rate:t.rate,qty:a.reduce((x,y)=>x+y.qty,0),av:r2(a.reduce((x,y)=>x+y.av,0)),igst:a.reduce((x,y)=>x+y.igst,0),oth:a.reduce((x,y)=>x+y.oth,0),cess:0};});
+  if(mode==='one'){const top=g[0],rt=items.reduce((o,i)=>{o[i.rate]=(o[i.rate]||0)+i.av;return o;},{});top.rate=+Object.keys(rt).sort((a,b)=>rt[b]-rt[a])[0];}
+  return g;
+}
 function exRows(b){
   const j=build(b),duty=isNaN(b.duty)?b.items.reduce((a,i)=>a+i.igst+i.oth,0):b.duty;
   const diff=r2(duty-b.items.reduce((a,i)=>a+i.igst+i.oth,0));
@@ -110,7 +119,7 @@ function exRows(b){
    N:nm(b.toName),O:b.gstin,P:clean(b.toAddr).slice(0,120),R:clean(b.toPlace),S:+b.toPin,T:STN[j.toStateCode]||'HARYANA',U:STN[j.toStateCode]||'HARYANA',AK:+S.dist||0};
   if(S.veh){h.AJ='Road';h.AP=S.veh.toUpperCase().replace(/[^A-Z0-9]/g,'');h.AQ='Regular';}
   if(S.tid){h.AL=clean(S.tname);h.AM=S.tid;}
-  return b.items.map((i,n)=>({...h,V:i.desc.slice(0,100),W:i.desc.slice(0,100),X:+i.hsn,Y:UNIT[i.unit]||i.unit,Z:i.qty,AA:i.av,AB:'0+0+'+i.rate+'+0+0',AC:0,AD:0,AE:i.igst,AF:0,AG:0,AH:i.oth+(n?0:diff),AI:j.totInvValue}));
+  return grp(b.items,S.mode).map((i,n)=>({...h,V:i.desc.slice(0,100),W:i.desc.slice(0,100),X:+i.hsn,Y:UNIT[i.unit]||i.unit,Z:i.qty,AA:i.av,AB:'0+0+'+i.rate+'+0+0',AC:0,AD:0,AE:i.igst,AF:0,AG:0,AH:i.oth+(n?0:diff),AI:j.totInvValue}));
 }
 const colN=L=>L.split('').reduce((a,c)=>a*26+c.charCodeAt(0)-64,0);
 const colL=n=>{let r='';while(n){const m=(n-1)%26;r=String.fromCharCode(65+m)+r;n=(n-m-1)/26|0;}return r;};
@@ -174,7 +183,7 @@ $('#out').addEventListener('click',e=>{const t=e.target;if(t.dataset.rm){bills.s
 $('#all').onclick=()=>dl(bills,'EWB_Prepared_'+bills.length+'_BOE.xlsm');
 $('#tpl').onchange=async e=>{const f=e.target.files[0];if(f){TPL=await f.arrayBuffer();$('#msg').textContent='Template set: '+f.name;}};
 $('#disp').innerHTML=Object.keys(ST).map(s=>`<option ${s===S.disp?'selected':''}>${s}</option>`).join('');
-[['gstin','gstin'],['disp','disp'],['dist','dist'],['tid','tid'],['tname','tname'],['veh','veh'],['src','src']].forEach(([id,k])=>{const el=$('#'+id);el.value=S[k]??'';el.addEventListener('input',()=>{S[k]=el.value;save();});el.addEventListener('change',()=>render());});
+[['gstin','gstin'],['disp','disp'],['dist','dist'],['tid','tid'],['tname','tname'],['veh','veh'],['src','src'],['mode','mode']].forEach(([id,k])=>{const el=$('#'+id);el.value=S[k]??'';el.addEventListener('input',()=>{S[k]=el.value;save();});el.addEventListener('change',()=>render());});
 
 
 $('#clr').onclick=()=>{try{localStorage.clear()}catch(e){}bills=[];S={disp:'DELHI',dist:20,tid:'',tname:'',veh:'',src:'hawb',gstin:''};['gstin','dist','tid','tname','veh'].forEach(i=>$('#'+i).value='');$('#fb textarea').value='';$('#fb').hidden=true;render();$('#msg').textContent='Saved data aur loaded BOE hata diye.';};
