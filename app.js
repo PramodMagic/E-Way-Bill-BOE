@@ -16,7 +16,7 @@ function parseBOE(pages){
   const p1=pages[0]||[];
   const text=pages.map(p=>mkLines(p).map(l=>l.t).join('\n')).join('\n');
   const t1=mkLines(p1).map(l=>l.t).join('\n');
-  if(!/Courier Bill Of Entry/i.test(t1)) throw new Error('Ye Courier Bill of Entry (CBE-XIII) nahi lag raha');
+  if(!/Courier Bill Of Entry/i.test(t1)) throw new Error('This does not look like a Courier Bill of Entry (CBE-XIII)');
   const o={};
   // CBE number (wraps over 2 lines)
   const ci=p1.find(i=>/^CBEXIII/.test(i.s.trim()));
@@ -80,26 +80,26 @@ function build(b){
 }
 function warns(b,j){
   const w=[];
-  if(Math.abs(j.totalValue-b.assessable)>0.05)w.push('Items ka assessable sum ('+j.totalValue+') BOE ke total ('+b.assessable+') se match nahi karta');
-  if(b.items.length>250)w.push('250 se zyada items hain; portal ek bill mein 250 tak hi leta hai');
-  if(!/^[A-Za-z0-9\-\/.]{1,16}$/.test(b.docNo))w.push('Doc No 16 character tak aur sirf letters, numbers, - / . hona chahiye');
-  if(!/^\d{2}\/\d{2}\/\d{4}$/.test(b.date))w.push('Date DD/MM/YYYY format mein honi chahiye');
-  if(!/^\d{6}$/.test(b.toPin))w.push('Consignee pincode 6 digit ka hona chahiye');
-  if(!b.items.length)w.push('Koi item nahi mila');
-  if(b.items.some(i=>!i.unit||i.unit==='undefined'))w.push('Kisi item ka unit nahi mila');
+  if(Math.abs(j.totalValue-b.assessable)>0.05)w.push('Sum of item assessable values ('+j.totalValue+') does not match the BOE total ('+b.assessable+')');
+  if(b.items.length>250)w.push('More than 250 items; the portal accepts at most 250 items per bill');
+  if(!/^[A-Za-z0-9\-\/.]{1,16}$/.test(b.docNo))w.push('Doc No must be up to 16 characters: letters, numbers, - / . only');
+  if(!/^\d{2}\/\d{2}\/\d{4}$/.test(b.date))w.push('Date must be in DD/MM/YYYY format');
+  if(!/^\d{6}$/.test(b.toPin))w.push('Consignee pincode must be 6 digits');
+  if(!b.items.length)w.push('No items found');
+  if(b.items.some(i=>!i.unit||i.unit==='undefined'))w.push('Unit missing for one or more items');
   return w;
 }
 function render(){
   $('#out').innerHTML=bills.map((b,n)=>{const j=build(b),w=warns(b,j);
    const f=(k,l,wide)=>`<label class="${wide?'w':''}">${l}<input data-n="${n}" data-k="${k}" value="${esc(b[k])}"></label>`;
-   return `<section class="card"><div class="row"><b>${esc(b.file)}</b><button class="ghost" data-rm="${n}">Hatao</button></div>
-   <p class="meta">${b.items.length} items (Excel mein ${grp(b.items,S.mode).length} row) · Assessable ₹${j.totalValue} · Duty ₹${isNaN(b.duty)?'?':b.duty} · Invoice value ₹${j.totInvValue} · IGST ₹${j.igstValue} · Others ₹${j.otherValue}</p>
+   return `<section class="card"><div class="row"><b>${esc(b.file)}</b><button class="ghost" data-rm="${n}">Remove</button></div>
+   <p class="meta">${b.items.length} items (${grp(b.items,S.mode).length} row(s) in Excel) · Assessable ₹${j.totalValue} · Duty ₹${isNaN(b.duty)?'?':b.duty} · Invoice value ₹${j.totInvValue} · IGST ₹${j.igstValue} · Others ₹${j.otherValue}</p>
    ${w.map(x=>`<p class="warn">⚠ ${esc(x)}</p>`).join('')}
    <div class="grid">${f('docNo','Doc No')}${f('date','Doc Date')}<span></span>
    ${f('fromName','Consignor (From)',1)}${f('fromAddr','Consignor address',1)}${f('fromPlace','From place')}
    ${f('toName','Consignee (To)',1)}${f('toAddr','Consignee address',1)}${f('toPlace','To place')}${f('toPin','To pincode')}</div>
    </section>`}).join('');
-  $('#all').hidden=!bills.length;$('#all').textContent='Excel download karo ('+bills.length+' BOE)';
+  $('#all').hidden=!bills.length;$('#all').textContent='Download Excel ('+bills.length+' BOE)';
 }
 const UNIT={"BAG":"BAGS","BAL":"BALE","BDL":"BUNDLES","BKL":"BUCKLES","BOU":"BILLION OF UNITS","BOX":"BOX","BTL":"BOTTLES","BUN":"BUNCHES","CAN":"CANS","CBM":"CUBIC METERS","CCM":"CUBIC CENTIMETERS","CMS":"CENTI METERS","CTN":"CARTONS","DOZ":"DOZENS","DRM":"DRUMS","GGK":"GREAT GROSS","GMS":"GRAMMES","GRS":"GROSS","GYD":"GROSS YARDS","KGS":"KILOGRAMS","KLR":"KILOLITRE","KME":"KILOMETRE","LTR":"LITRES","MLT":"MILILITRE","MTR":"METERS","MTS":"METRIC TON","NOS":"NUMBERS","OTH":"OTHERS","PAC":"PACKS","PCS":"PIECES","PRS":"PAIRS","QTL":"QUINTAL","ROL":"ROLLS","SET":"SETS","SQF":"SQUARE FEET","SQM":"SQUARE METERS","SQY":"SQUARE YARDS","TBS":"TABLETS","TGM":"TEN GROSS","THD":"THOUSANDS","TON":"TONNES","TUB":"TUBES","UGS":"US GALLONS","UNT":"UNITS","YDS":"YARDS"};
 const nm=s=>clean(s).replace(/,/g,' ').replace(/\s+/g,' ').trim();
@@ -121,7 +121,7 @@ function exRows(b){
   if(S.tdate==='today'){const d=new Date(),p=n=>String(n).padStart(2,'0');h.AO=p(d.getDate())+'/'+p(d.getMonth()+1)+'/'+d.getFullYear();}
   else if(S.tdate==='doc')h.AO=b.date;
   if(S.tid){h.AL=clean(S.tname);h.AM=S.tid;}
-  return grp(b.items,S.mode).map((i,n)=>({...h,V:i.desc.slice(0,100),W:i.desc.slice(0,100),X:+i.hsn,Y:UNIT[i.unit]||i.unit,Z:i.qty,AA:i.av,AB:'0+0+'+i.rate+'+0+0',AC:0,AD:0,AE:i.igst,AF:0,AG:0,AH:i.oth+(n?0:diff),AI:j.totInvValue}));
+  return grp(b.items,S.mode).map((i,n)=>({...h,V:i.desc.slice(0,100),W:i.desc.slice(0,100),X:+i.hsn,Y:UNIT[i.unit]||i.unit,Z:i.qty,AA:i.av,AB:'0+0+'+i.rate+'+0+0',AC:0,AD:0,AE:i.igst,AF:0,AG:0,AH:j.otherValue,AI:j.totInvValue}));
 }
 const colN=L=>L.split('').reduce((a,c)=>a*26+c.charCodeAt(0)-64,0);
 const colL=n=>{let r='';while(n){const m=(n-1)%26;r=String.fromCharCode(65+m)+r;n=(n-m-1)/26|0;}return r;};
@@ -131,7 +131,7 @@ async function fillTemplate(buf,list){
   const wb=await z.file('xl/workbook.xml').async('string'),rel=await z.file('xl/_rels/workbook.xml.rels').async('string');
   const rid=(wb.match(/<sheet [^>]*name="eWayBill"[^>]*r:id="(rId\d+)"/)||[])[1];
   const tg=rid&&(rel.match(new RegExp('<Relationship [^>]*Id="'+rid+'"[^>]*Target="([^"]+)"'))||rel.match(new RegExp('<Relationship [^>]*Target="([^"]+)"[^>]*Id="'+rid+'"'))||[])[1];
-  if(!tg)throw new Error('Template mein eWayBill sheet nahi mili');
+  if(!tg)throw new Error('eWayBill sheet not found in the template');
   const path='xl/'+tg.replace(/^\/?(xl\/)?/,''),f=z.file(path);let s=await f.async('string');
   const cs={};for(const m of s.matchAll(/<col min="(\d+)" max="(\d+)"[^>]*?style="(\d+)"/g))for(let c=+m[1];c<=Math.min(+m[2],46);c++)cs[c]=m[3];
   s=s.replace(/<row r="(\d+)"[^>]*>.*?<\/row>/gs,(x,r)=>+r>=4?'':x);
@@ -153,12 +153,12 @@ async function loadTpl(){try{const r=await fetch('template.xlsm');if(r.ok)TPL=aw
 loadTpl();
 async function dl(list,name){
   try{
-    if(!TPL){$('#msg').textContent='Template nahi mila — upar "Template choose karo" se EWB_Preparation_Tool .xlsm select karo.';return;}
+    if(!TPL){$('#msg').textContent='Template not found. Choose your EWB_Preparation_Tool .xlsm using the Template field above.';return;}
     const bytes=await fillTemplate(TPL,list);
     const u=URL.createObjectURL(new Blob([bytes],{type:'application/vnd.ms-excel.sheet.macroEnabled.12'})),l=document.createElement('a');
     l.href=u;l.download=name;document.body.appendChild(l);l.click();l.remove();setTimeout(()=>URL.revokeObjectURL(u),2000);
-    $('#msg').textContent='Excel download shuru: '+name;
-  }catch(e){$('#msg').textContent='Excel nahi ban paya: '+e.message;}
+    $('#msg').textContent='Excel download started: '+name;
+  }catch(e){$('#msg').textContent='Could not create Excel: '+e.message;}
 }
 async function readPdf(file){
   const pdf=await pdfjsLib.getDocument({data:new Uint8Array(await file.arrayBuffer()),isEvalSupported:false,disableFontFace:true}).promise,pages=[];
@@ -167,7 +167,7 @@ async function readPdf(file){
 }
 async function add(files){
   for(const f of files){
-    $('#msg').textContent=f.name+' padh raha hoon…';
+    $('#msg').textContent=f.name+': reading…';
     try{const b=await readPdf(f);b.file=f.name;b.docNo=(S.src==='cbe'?(b.cbe||'').replace(/[^A-Za-z0-9]/g,'').slice(-16):b.hawb);
       const p=prof(b.gstin);if(p)Object.assign(b,p);
       if(!S.gstin)S.gstin=b.gstin;bills.push(b);$('#msg').textContent='';}
@@ -188,5 +188,5 @@ $('#disp').innerHTML=Object.keys(ST).map(s=>`<option ${s===S.disp?'selected':''}
 [['gstin','gstin'],['disp','disp'],['dist','dist'],['tid','tid'],['tname','tname'],['veh','veh'],['src','src'],['mode','mode'],['tdate','tdate']].forEach(([id,k])=>{const el=$('#'+id);el.value=S[k]??'';el.addEventListener('input',()=>{S[k]=el.value;save();});el.addEventListener('change',()=>render());});
 
 
-$('#clr').onclick=()=>{try{localStorage.clear()}catch(e){}bills=[];S={disp:'DELHI',dist:20,tid:'',tname:'',veh:'',src:'hawb',gstin:'',mode:'rate',tdate:'today'};['gstin','dist','tid','tname','veh'].forEach(i=>$('#'+i).value='');$('#fb textarea').value='';$('#fb').hidden=true;render();$('#msg').textContent='Saved data aur loaded BOE hata diye.';};
+$('#clr').onclick=()=>{try{localStorage.clear()}catch(e){}bills=[];S={disp:'DELHI',dist:20,tid:'',tname:'',veh:'',src:'hawb',gstin:'',mode:'rate',tdate:'today'};['gstin','dist','tid','tname','veh'].forEach(i=>$('#'+i).value='');$('#fb textarea').value='';$('#fb').hidden=true;render();$('#msg').textContent='Saved data and loaded BOEs cleared.';};
 window.addEventListener('pagehide',()=>{bills=[];});

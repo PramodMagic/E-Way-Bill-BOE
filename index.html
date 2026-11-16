@@ -1,22 +1,22 @@
 <!DOCTYPE html>
-<html lang="hi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="robots" content="noindex,nofollow,noarchive"><meta name="referrer" content="no-referrer"><title>BOE से E-Way Bill Excel</title>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="robots" content="noindex,nofollow,noarchive"><meta name="referrer" content="no-referrer"><title>BOE to E-Way Bill Excel</title>
 <link rel="stylesheet" href="style.css"></head><body><main>
-<h1>BOE से E-Way Bill Excel</h1>
-<p class="sub">Courier BOE (CBE-XIII) PDF upload karo, ek ya kai. Data aapke EWB Preparation Tool Excel ke eWayBill sheet mein bhar kar wahi Excel (.xlsm) download hoti hai.</p>
-<section class="card"><details open><summary>Settings (ek baar bharo, yaad rahengi)</summary><div class="grid">
-<label>Aapka GSTIN (userGstin)<input id="gstin"></label>
+<h1>BOE to E-Way Bill Excel</h1>
+<p class="sub">Upload one or more Courier BOE (CBE-XIII) PDFs. The data is filled into the eWayBill sheet of your EWB Preparation Tool, and the same Excel (.xlsm) is downloaded.</p>
+<section class="card"><details open><summary>Settings (fill once, remembered in this browser)</summary><div class="grid">
+<label>Your GSTIN (userGstin)<input id="gstin"></label>
 <label>Dispatch State<select id="disp"></select></label>
 <label>Distance (Km)<input id="dist" type="number" min="0"></label>
-<label>Doc No kahan se<select id="src"><option value="hawb">HAWB number</option><option value="cbe">CBE number (aakhri 16)</option></select></label>
-<label>Items kaise bharein<select id="mode"><option value="rate">Tax-rate wise (18% / 5% ki alag row)</option><option value="one">Poori HAWB ki 1 row</option><option value="all">Har item alag</option></select></label>
-<label>Transporter ID (optional)<input id="tid"></label><label>Transporter Name<input id="tname"></label><label>Trans Date<select id="tdate"><option value="today">Aaj ki date</option><option value="doc">BOE ki Doc Date</option><option value="none">Khali chhodo</option></select></label>
+<label>Doc No source<select id="src"><option value="hawb">HAWB number</option><option value="cbe">CBE number (last 16 chars)</option></select></label>
+<label>How to enter items<select id="mode"><option value="rate">By tax rate (separate row per rate, e.g. 18% / 5%)</option><option value="one">One row for the whole HAWB</option><option value="all">Every item separately</option></select></label>
+<label>Transporter ID (optional)<input id="tid"></label><label>Transporter Name<input id="tname"></label><label>Trans Date<select id="tdate"><option value="today">Today’s date</option><option value="doc">BOE Doc Date</option><option value="none">Leave blank</option></select></label>
 <label>Vehicle No (optional)<input id="veh"></label></div></details></section>
-<label id="drop" class="btn" style="display:block;color:var(--tx)">BOE PDF yahan drop karo ya <u>choose karo</u><input id="file" type="file" accept="application/pdf" multiple hidden></label>
-<label class="sub" style="display:block">Template (agar auto-load na ho): <input id="tpl" type="file" accept=".xlsm"></label>
+<label id="drop" class="btn" style="display:block;color:var(--tx)">Drop BOE PDFs here or <u>choose files</u><input id="file" type="file" accept="application/pdf" multiple hidden></label>
+<label class="sub" style="display:block">Template (if it does not load automatically): <input id="tpl" type="file" accept=".xlsm"></label>
 <p id="msg"></p><div id="out"></div>
 <button id="all" hidden></button>
 <div id="fb" hidden class="card"><textarea readonly></textarea></div>
-<p class="sub" style="margin-top:14px"><button class="ghost" id="clr">Saved data aur loaded BOE hatao</button><br>Upload se pehle har bill ke fields (address, doc no, date) check kar lena; BOE ke text se address lossy aata hai. Consignee ki edits yaad rakhi jaati hain.</p>
+<p class="sub" style="margin-top:14px"><button class="ghost" id="clr">Clear saved data and loaded BOEs</button><br>Check each bill’s fields (address, Doc No, date) before uploading; addresses extracted from the BOE can be imperfect. Your consignee edits are remembered.</p>
 </main>
 <script src="pdf.min.js"></script>
 <script src="jszip.min.js"></script>
