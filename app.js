@@ -69,13 +69,15 @@ function build(b){
   const duty=isNaN(b.duty)?b.items.reduce((a,i)=>a+i.igst+i.oth+i.cess,0):b.duty;
   const dc=ST[S.disp]||7,sc=b.stateCode||+b.gstin.slice(0,2);
   const j={userGstin:S.gstin||b.gstin,supplyType:'I',subSupplyType:2,subSupplyDesc:'',docType:'BOE',docNo:b.docNo,docDate:b.date,
-   fromGstin:'URP',fromTrdName:b.fromName,fromAddr1:b.fromAddr.slice(0,120),fromAddr2:b.fromAddr.slice(120,240),fromPlace:b.fromPlace,fromPincode:999999,actFromStateCode:dc,fromStateCode:99,
-   toGstin:b.gstin,toTrdName:b.toName,toAddr1:b.toAddr.slice(0,120),toAddr2:b.toAddr.slice(120,240),toPlace:b.toPlace,toPincode:+b.toPin,actToStateCode:sc,toStateCode:sc,
+   fromGstin:'URP',fromTrdName:nm(b.fromName),fromAddr1:clean(b.fromAddr).slice(0,120),fromAddr2:clean(b.fromAddr).slice(120,240),fromPlace:clean(b.fromPlace),fromPincode:999999,actFromStateCode:dc,fromStateCode:99,
+   toGstin:b.gstin,toTrdName:nm(b.toName),toAddr1:clean(b.toAddr).slice(0,120),toAddr2:clean(b.toAddr).slice(120,240),toPlace:clean(b.toPlace),toPincode:+b.toPin,actToStateCode:sc,toStateCode:sc,
    transactionType:1,otherValue:r2(duty-ig),totalValue:tv,cgstValue:0,sgstValue:0,igstValue:ig,cessValue:0,cessNonAdvolValue:0,totInvValue:Math.round(tv+duty),
    transDistance:String(S.dist||0)};
   if(S.veh){j.transMode=1;j.vehicleNo=S.veh.toUpperCase().replace(/[^A-Z0-9]/g,'');j.vehicleType='R';}
+  if(S.tdate==='today'){const d=new Date(),p=n=>String(n).padStart(2,'0');j.transDocDate=p(d.getDate())+'/'+p(d.getMonth()+1)+'/'+d.getFullYear();}
+  else if(S.tdate==='doc')j.transDocDate=b.date;
   if(S.tid){j.transporterId=S.tid;j.transporterName=S.tname;}
-  j.itemList=b.items.map(i=>({productName:i.desc.slice(0,100),productDesc:i.desc.slice(0,100),hsnCode:+i.hsn,quantity:i.qty,qtyUnit:i.unit,taxableAmount:i.av,sgstRate:0,cgstRate:0,igstRate:i.rate,cessRate:0,cessNonadvol:0}));
+  j.itemList=grp(b.items,S.mode).map(i=>({productName:i.desc.slice(0,100),productDesc:i.desc.slice(0,100),hsnCode:+i.hsn,quantity:i.qty,qtyUnit:i.unit,taxableAmount:i.av,sgstRate:0,cgstRate:0,igstRate:i.rate,cessRate:0,cessNonadvol:0}));
   return j;
 }
 function warns(b,j){
@@ -99,7 +101,7 @@ function render(){
    ${f('fromName','Consignor (From)',1)}${f('fromAddr','Consignor address',1)}${f('fromPlace','From place')}
    ${f('toName','Consignee (To)',1)}${f('toAddr','Consignee address',1)}${f('toPlace','To place')}${f('toPin','To pincode')}</div>
    </section>`}).join('');
-  $('#all').hidden=!bills.length;$('#all').textContent='Download Excel ('+bills.length+' BOE)';
+  $('#all').hidden=!bills.length;$('#json').hidden=!bills.length;$('#json').textContent='Download JSON for portal ('+bills.length+' BOE)';$('#all').textContent='Download Excel ('+bills.length+' BOE)';
 }
 const UNIT={"BAG":"BAGS","BAL":"BALE","BDL":"BUNDLES","BKL":"BUCKLES","BOU":"BILLION OF UNITS","BOX":"BOX","BTL":"BOTTLES","BUN":"BUNCHES","CAN":"CANS","CBM":"CUBIC METERS","CCM":"CUBIC CENTIMETERS","CMS":"CENTI METERS","CTN":"CARTONS","DOZ":"DOZENS","DRM":"DRUMS","GGK":"GREAT GROSS","GMS":"GRAMMES","GRS":"GROSS","GYD":"GROSS YARDS","KGS":"KILOGRAMS","KLR":"KILOLITRE","KME":"KILOMETRE","LTR":"LITRES","MLT":"MILILITRE","MTR":"METERS","MTS":"METRIC TON","NOS":"NUMBERS","OTH":"OTHERS","PAC":"PACKS","PCS":"PIECES","PRS":"PAIRS","QTL":"QUINTAL","ROL":"ROLLS","SET":"SETS","SQF":"SQUARE FEET","SQM":"SQUARE METERS","SQY":"SQUARE YARDS","TBS":"TABLETS","TGM":"TEN GROSS","THD":"THOUSANDS","TON":"TONNES","TUB":"TUBES","UGS":"US GALLONS","UNT":"UNITS","YDS":"YARDS"};
 const nm=s=>clean(s).replace(/,/g,' ').replace(/\s+/g,' ').trim();
@@ -182,6 +184,11 @@ dz.addEventListener('drop',e=>add([...e.dataTransfer.files].filter(f=>/pdf$/i.te
 $('#out').addEventListener('input',e=>{const t=e.target;if(t.dataset.k){const b=bills[t.dataset.n];b[t.dataset.k]=t.value;if(/^to/.test(t.dataset.k))saveProf(b);}});
 $('#out').addEventListener('change',()=>render());
 $('#out').addEventListener('click',e=>{const t=e.target;if(t.dataset.rm){bills.splice(+t.dataset.rm,1);render();}if(t.dataset.dl){const b=bills[+t.dataset.dl];dl([b],'EWB_'+b.docNo.replace(/\W/g,'')+'.xlsm');}});
+$('#json').onclick=()=>{
+  const data=JSON.stringify({version:'1.0.0621',billLists:bills.map(build)},null,1);
+  const u=URL.createObjectURL(new Blob([data],{type:'application/json'})),l=document.createElement('a');
+  l.href=u;l.download='EWB_'+bills.length+'_BOE.json';document.body.appendChild(l);l.click();l.remove();setTimeout(()=>URL.revokeObjectURL(u),2000);
+  $('#msg').textContent='JSON download started (.json file).';};
 $('#all').onclick=()=>dl(bills,'EWB_Prepared_'+bills.length+'_BOE.xlsm');
 $('#tpl').onchange=async e=>{const f=e.target.files[0];if(f){TPL=await f.arrayBuffer();$('#msg').textContent='Template set: '+f.name;}};
 $('#disp').innerHTML=Object.keys(ST).map(s=>`<option ${s===S.disp?'selected':''}>${s}</option>`).join('');
