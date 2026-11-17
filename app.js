@@ -57,7 +57,7 @@ function parseBOE(pages){
 }
 
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-let S={disp:'DELHI',dist:20,tid:'',tname:'',veh:'',src:'hawb',gstin:'',mode:'rate',tdate:'today'},bills=[];
+let S={disp:'DELHI',dist:20,tid:'',tname:'',veh:'',src:'hawb',gstin:'',mode:'rate',tdate:'today',dpin:'110037'},bills=[];
 try{Object.assign(S,JSON.parse(localStorage.getItem('ewb_set')||'{}'))}catch(e){}
 const save=()=>{try{localStorage.setItem('ewb_set',JSON.stringify(S))}catch(e){}};
 const prof=g=>{try{return JSON.parse(localStorage.getItem('ewb_p_'+g)||'null')}catch(e){return null}};
@@ -87,6 +87,7 @@ function warns(b,j){
   if(!/^[A-Za-z0-9\-\/.]{1,16}$/.test(b.docNo))w.push('Doc No must be up to 16 characters: letters, numbers, - / . only');
   if(!/^\d{2}\/\d{2}\/\d{4}$/.test(b.date))w.push('Date must be in DD/MM/YYYY format');
   if(!/^\d{6}$/.test(b.toPin))w.push('Consignee pincode must be 6 digits');
+  if(!/^\d{6}$/.test(String(S.dpin)))w.push('Dispatch pincode must be 6 digits and belong to the Dispatch State');
   if(!b.items.length)w.push('No items found');
   if(b.items.some(i=>!i.unit||i.unit==='undefined'))w.push('Unit missing for one or more items');
   return w;
@@ -118,13 +119,14 @@ function grp(items,mode){
 function exRows(b){
   const j=build(b),duty=isNaN(b.duty)?b.items.reduce((a,i)=>a+i.igst+i.oth,0):b.duty;
   const diff=r2(duty-b.items.reduce((a,i)=>a+i.igst+i.oth,0));
-  const h={A:'Inward',B:'Import',C:'Bill of Entry',D:b.docNo,E:b.date,F:nm(b.fromName),G:'URP',H:clean(b.fromAddr).slice(0,120),J:clean(b.fromPlace),K:999999,L:'OTHER COUNTRIES',M:S.disp,
-   N:nm(b.toName),O:b.gstin,P:clean(b.toAddr).slice(0,120),R:clean(b.toPlace),S:+b.toPin,T:STN[j.toStateCode]||'HARYANA',U:STN[j.toStateCode]||'HARYANA',AK:+S.dist||0};
-  if(S.veh){h.AJ='Road';h.AP=S.veh.toUpperCase().replace(/[^A-Z0-9]/g,'');h.AQ='Regular';}
-  if(S.tdate==='today'){const d=new Date(),p=n=>String(n).padStart(2,'0');h.AO=p(d.getDate())+'/'+p(d.getMonth()+1)+'/'+d.getFullYear();}
-  else if(S.tdate==='doc')h.AO=b.date;
-  if(S.tid){h.AL=clean(S.tname);h.AM=S.tid;}
-  return grp(b.items,S.mode).map((i,n)=>({...h,V:i.desc.slice(0,100),W:i.desc.slice(0,100),X:+i.hsn,Y:UNIT[i.unit]||i.unit,Z:i.qty,AA:i.av,AB:'0+0+'+i.rate+'+0+0',AC:0,AD:0,AE:i.igst,AF:0,AG:0,AH:j.otherValue,AI:j.totInvValue}));
+  const stn=STN[j.toStateCode]||'HARYANA';
+  const h={A:'Inward',B:'Import',C:'Bill of Entry',D:b.docNo,E:b.date,F:'Bill From-Dispatch From',G:nm(b.fromName),H:'URP',I:clean(b.fromAddr).slice(0,120),K:clean(b.fromPlace),L:+S.dpin||110037,M:'OTHER COUNTRIES',N:S.disp,
+   O:nm(b.toName),P:b.gstin,Q:clean(b.toAddr).slice(0,120),S:clean(b.toPlace),T:+b.toPin,U:stn,V:stn,AL:+S.dist||0};
+  if(S.veh){h.AK='Road';h.AQ=S.veh.toUpperCase().replace(/[^A-Z0-9]/g,'');h.AR='Regular';}
+  if(S.tdate==='today'){const d=new Date(),p=n=>String(n).padStart(2,'0');h.AP=p(d.getDate())+'/'+p(d.getMonth()+1)+'/'+d.getFullYear();}
+  else if(S.tdate==='doc')h.AP=b.date;
+  if(S.tid){h.AM=clean(S.tname);h.AN=S.tid;}
+  return grp(b.items,S.mode).map((i,n)=>({...h,W:i.desc.slice(0,100),X:i.desc.slice(0,100),Y:+i.hsn,Z:UNIT[i.unit]||i.unit,AA:i.qty,AB:i.av,AC:'0+0+'+i.rate+'+0+0',AD:0,AE:0,AF:i.igst,AG:0,AH:0,AI:j.otherValue,AJ:j.totInvValue}));
 }
 const colN=L=>L.split('').reduce((a,c)=>a*26+c.charCodeAt(0)-64,0);
 const colL=n=>{let r='';while(n){const m=(n-1)%26;r=String.fromCharCode(65+m)+r;n=(n-m-1)/26|0;}return r;};
@@ -141,7 +143,7 @@ async function fillTemplate(buf,list){
   let n=4,out='';
   for(const b of list)for(const d of exRows(b)){
     let cells='';
-    for(let c=1;c<=43;c++){const L=colL(c);if(d[L]===undefined||d[L]==='')continue;const st=cs[c]||'0',v=d[L];
+    for(let c=1;c<=45;c++){const L=colL(c);if(d[L]===undefined||d[L]==='')continue;const st=cs[c]||'0',v=d[L];
       cells+=typeof v==='string'?`<c r="${L}${n}" s="${st}" t="inlineStr"><is><t>${xe(v)}</t></is></c>`:`<c r="${L}${n}" s="${st}"><v>${v}</v></c>`;}
     out+=`<row r="${n}" spans="1:45">${cells}</row>`;n++;
   }
@@ -156,19 +158,19 @@ const fd=d=>{if(!d)return '';const p=String(d).replace(/-/g,'/').split('/');retu
 // Same JSON that the Excel "Prepare JSON" macro writes (version 1.0.0918, E-WayBill_JSON.json)
 function macroBill(b){
   const rows=exRows(b),h=rows[0],sum=k=>r2(rows.reduce((a,r)=>a+(+r[k]||0),0));
-  const top=rows.reduce((x,y)=>y.AA>x.AA?y:x,rows[0]);
-  const ug=S.gstin||b.gstin,stN=STN[b.stateCode||+b.gstin.slice(0,2)]||'';
-  return {userGstin:ug,supplyType:'I',subSupplyType:2,docType:'BOE',docNo:String(h.D).trim(),docDate:fd(h.E),
-   fromGstin:'URP',fromTrdName:h.F,fromAddr1:h.H,fromAddr2:h.I||'',fromPlace:h.J,fromPincode:h.K,fromStateCode:SC(h.L),actualFromStateCode:h.M?SC(h.M):0,
-   toGstin:ug,toTrdName:h.N,toAddr1:h.P,toAddr2:h.Q||'',toPlace:h.R,toPincode:h.S,toStateCode:SC(stN),actualToStateCode:h.U?SC(h.U):0,
-   totalValue:sum('AA'),cgstValue:0,sgstValue:0,igstValue:sum('AE'),cessValue:0,TotNonAdvolVal:0,OthValue:+h.AH||0,totInvValue:h.AI,
-   transMode:({Road:1,Air:3,Rail:2,Ship:4})[h.AJ]||1,transDistance:+h.AK||0,transporterName:h.AL||'',transporterId:h.AM||'',transDocNo:h.AN||'',transDocDate:fd(h.AO),
-   vehicleNo:h.AP||'',vehicleType:h.AQ==='ODC'?'O':'R',mainHsnCode:+top.X,
-   itemList:rows.map((r,i)=>{const t=String(r.AB).split('+');return {itemNo:i+1,productName:r.V,productDesc:r.W,hsnCode:+r.X,quantity:r.Z,qtyUnit:UC[r.Y]||r.Y,taxableAmount:r.AA,sgstRate:+t[0],cgstRate:+t[1],igstRate:+t[2],cessRate:+t[3],cessNonAdvol:+t[4]};})};
+  const top=rows.reduce((x,y)=>y.AB>x.AB?y:x,rows[0]);
+  const ug=S.gstin||b.gstin;
+  return {userGstin:ug,supplyType:'I',subSupplyType:2,subSupplyDesc:h.AS||'',docType:'BOE',docNo:String(h.D).trim(),docDate:fd(h.E),transType:3,
+   fromGstin:'URP',fromTrdName:h.G,fromAddr1:h.I,fromAddr2:h.J||'',fromPlace:h.K,fromPincode:h.L,fromStateCode:SC(h.M),actualFromStateCode:h.N?SC(h.N):0,
+   toGstin:ug,toTrdName:h.O,toAddr1:h.Q,toAddr2:h.R||'',toPlace:h.S,toPincode:h.T,toStateCode:SC(h.U),actualToStateCode:h.V?SC(h.V):0,
+   totalValue:sum('AB'),cgstValue:0,sgstValue:0,igstValue:sum('AF'),cessValue:0,TotNonAdvolVal:0,OthValue:+h.AI||0,totInvValue:h.AJ,
+   transMode:({Road:1,Air:3,Rail:2,'Ship/Road cum Ship':4})[h.AK]||1,transDistance:+h.AL||0,transporterName:h.AM||'',transporterId:h.AN||'',transDocNo:h.AO||'',transDocDate:fd(h.AP),
+   vehicleNo:h.AQ||'',vehicleType:h.AR==='ODC'?'O':'R',mainHsnCode:+top.Y,
+   itemList:rows.map((r,i)=>{const t=String(r.AC).split('+');return {itemNo:i+1,productName:r.W,productDesc:r.X,hsnCode:String(r.Y),quantity:r.AA,qtyUnit:UC[r.Z]||r.Z,taxableAmount:r.AB,sgstRate:+t[0],cgstRate:+t[1],igstRate:+t[2],cessRate:+t[3],cessNonAdvol:+t[4]};})};
 }
 function dlJson(){
   try{
-    const data=JSON.stringify({version:'1.0.0918',billLists:bills.map(macroBill)},null,2);
+    const data=JSON.stringify({version:'1.0.0621',billLists:bills.map(macroBill)},null,2);
     const u=URL.createObjectURL(new Blob([data],{type:'application/json'})),l=document.createElement('a');
     l.href=u;l.download='E-WayBill_JSON.json';document.body.appendChild(l);l.click();l.remove();setTimeout(()=>URL.revokeObjectURL(u),2000);
     $('#msg').textContent='Downloaded E-WayBill_JSON.json';
@@ -212,8 +214,8 @@ $('#json').onclick=()=>dlJson();
 $('#all').onclick=()=>dl(bills,'EWB_Prepared_'+bills.length+'_BOE.xlsm');
 $('#tpl').onchange=async e=>{const f=e.target.files[0];if(f){TPL=await f.arrayBuffer();$('#msg').textContent='Template set: '+f.name;}};
 $('#disp').innerHTML=Object.keys(ST).map(s=>`<option ${s===S.disp?'selected':''}>${s}</option>`).join('');
-[['gstin','gstin'],['disp','disp'],['dist','dist'],['tid','tid'],['tname','tname'],['veh','veh'],['src','src'],['mode','mode'],['tdate','tdate']].forEach(([id,k])=>{const el=$('#'+id);el.value=S[k]??'';el.addEventListener('input',()=>{S[k]=el.value;save();});el.addEventListener('change',()=>render());});
+[['gstin','gstin'],['disp','disp'],['dist','dist'],['tid','tid'],['tname','tname'],['veh','veh'],['src','src'],['mode','mode'],['tdate','tdate'],['dpin','dpin']].forEach(([id,k])=>{const el=$('#'+id);el.value=S[k]??'';el.addEventListener('input',()=>{S[k]=el.value;save();});el.addEventListener('change',()=>render());});
 
 
-$('#clr').onclick=()=>{try{localStorage.clear()}catch(e){}bills=[];S={disp:'DELHI',dist:20,tid:'',tname:'',veh:'',src:'hawb',gstin:'',mode:'rate',tdate:'today'};['gstin','dist','tid','tname','veh'].forEach(i=>$('#'+i).value='');$('#fb textarea').value='';$('#fb').hidden=true;render();$('#msg').textContent='Saved data and loaded BOEs cleared.';};
+$('#clr').onclick=()=>{try{localStorage.clear()}catch(e){}bills=[];S={disp:'DELHI',dist:20,tid:'',tname:'',veh:'',src:'hawb',gstin:'',mode:'rate',tdate:'today',dpin:'110037'};['gstin','dist','tid','tname','veh'].forEach(i=>$('#'+i).value='');$('#fb textarea').value='';$('#fb').hidden=true;render();$('#msg').textContent='Saved data and loaded BOEs cleared.';};
 window.addEventListener('pagehide',()=>{bills=[];});
