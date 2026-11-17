@@ -16,3 +16,6 @@ Upload Courier BOE (CBE-XIII) PDFs and download your filled EWB Preparation Tool
 
 ## Template
 `template.xlsm` is your EWB Preparation Tool. Replace it with a newer template of the same layout if needed.
+
+## JSON for the GST portal
+"Download E-WayBill_JSON.json" writes the same JSON that the Excel "Prepare JSON" macro creates (version 1.0.0918, file name `E-WayBill_JSON.json`), so it can be uploaded to the e-way bill portal directly.

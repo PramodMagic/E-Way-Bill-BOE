@@ -101,8 +101,9 @@ function render(){
    ${f('fromName','Consignor (From)',1)}${f('fromAddr','Consignor address',1)}${f('fromPlace','From place')}
    ${f('toName','Consignee (To)',1)}${f('toAddr','Consignee address',1)}${f('toPlace','To place')}${f('toPin','To pincode')}</div>
    </section>`}).join('');
-  $('#all').hidden=!bills.length;$('#json').hidden=!bills.length;$('#json').textContent='Download JSON for portal ('+bills.length+' BOE)';$('#all').textContent='Download Excel ('+bills.length+' BOE)';
+  $('#all').hidden=!bills.length;$('#json').hidden=!bills.length;$('#json').textContent='Download E-WayBill_JSON.json ('+bills.length+' BOE)';$('#all').textContent='Download Excel ('+bills.length+' BOE)';
 }
+const UC={"BAGS":"BAG","BALE":"BAL","BUNDLES":"BDL","BUCKLES":"BKL","BILLION OF UNITS":"BOU","BOX":"BOX","BOTTLES":"BTL","BUNCHES":"BUN","CANS":"CAN","CUBIC METERS":"CBM","CUBIC CENTIMETERS":"CCM","CENTI METERS":"CMS","CARTONS":"CTN","DOZENS":"DOZ","DRUMS":"DRM","GREAT GROSS":"GGK","GRAMMES":"GMS","GROSS":"GRS","GROSS YARDS":"GYD","KILOGRAMS":"KGS","KILOLITRE":"KLR","KILOMETRE":"KME","LITRES":"LTR","MILILITRE":"MLT","METERS":"MTR","METRIC TON":"MTS","NUMBERS":"NOS","OTHERS":"OTH","PACKS":"PAC","PIECES":"PCS","PAIRS":"PRS","QUINTAL":"QTL","ROLLS":"ROL","SETS":"SET","SQUARE FEET":"SQF","SQUARE METERS":"SQM","SQUARE YARDS":"SQY","TABLETS":"TBS","TEN GROSS":"TGM","THOUSANDS":"THD","TONNES":"TON","TUBES":"TUB","US GALLONS":"UGS","UNITS":"UNT","YARDS":"YDS"};
 const UNIT={"BAG":"BAGS","BAL":"BALE","BDL":"BUNDLES","BKL":"BUCKLES","BOU":"BILLION OF UNITS","BOX":"BOX","BTL":"BOTTLES","BUN":"BUNCHES","CAN":"CANS","CBM":"CUBIC METERS","CCM":"CUBIC CENTIMETERS","CMS":"CENTI METERS","CTN":"CARTONS","DOZ":"DOZENS","DRM":"DRUMS","GGK":"GREAT GROSS","GMS":"GRAMMES","GRS":"GROSS","GYD":"GROSS YARDS","KGS":"KILOGRAMS","KLR":"KILOLITRE","KME":"KILOMETRE","LTR":"LITRES","MLT":"MILILITRE","MTR":"METERS","MTS":"METRIC TON","NOS":"NUMBERS","OTH":"OTHERS","PAC":"PACKS","PCS":"PIECES","PRS":"PAIRS","QTL":"QUINTAL","ROL":"ROLLS","SET":"SETS","SQF":"SQUARE FEET","SQM":"SQUARE METERS","SQY":"SQUARE YARDS","TBS":"TABLETS","TGM":"TEN GROSS","THD":"THOUSANDS","TON":"TONNES","TUB":"TUBES","UGS":"US GALLONS","UNT":"UNITS","YDS":"YARDS"};
 const nm=s=>clean(s).replace(/,/g,' ').replace(/\s+/g,' ').trim();
 function grp(items,mode){
@@ -150,6 +151,29 @@ async function fillTemplate(buf,list){
   for(const k of Object.keys(z.files)){const e=z.files[k];if(!e.dir)z2.file(k,await e.async('uint8array'),{date:e.date,createFolders:false});}
   return z2.generateAsync({type:'uint8array',compression:'DEFLATE'});
 }
+const SC=n=>n==='OTHER COUNTRIES'?99:(ST[String(n||'').toUpperCase()]||0);
+const fd=d=>{if(!d)return '';const p=String(d).replace(/-/g,'/').split('/');return p[0].padStart(2,'0')+'/'+p[1].padStart(2,'0')+'/'+p[2];};
+// Same JSON that the Excel "Prepare JSON" macro writes (version 1.0.0918, E-WayBill_JSON.json)
+function macroBill(b){
+  const rows=exRows(b),h=rows[0],sum=k=>r2(rows.reduce((a,r)=>a+(+r[k]||0),0));
+  const top=rows.reduce((x,y)=>y.AA>x.AA?y:x,rows[0]);
+  const ug=S.gstin||b.gstin,stN=STN[b.stateCode||+b.gstin.slice(0,2)]||'';
+  return {userGstin:ug,supplyType:'I',subSupplyType:2,docType:'BOE',docNo:String(h.D).trim(),docDate:fd(h.E),
+   fromGstin:'URP',fromTrdName:h.F,fromAddr1:h.H,fromAddr2:h.I||'',fromPlace:h.J,fromPincode:h.K,fromStateCode:SC(h.L),actualFromStateCode:h.M?SC(h.M):0,
+   toGstin:ug,toTrdName:h.N,toAddr1:h.P,toAddr2:h.Q||'',toPlace:h.R,toPincode:h.S,toStateCode:SC(stN),actualToStateCode:h.U?SC(h.U):0,
+   totalValue:sum('AA'),cgstValue:0,sgstValue:0,igstValue:sum('AE'),cessValue:0,TotNonAdvolVal:0,OthValue:+h.AH||0,totInvValue:h.AI,
+   transMode:({Road:1,Air:3,Rail:2,Ship:4})[h.AJ]||1,transDistance:+h.AK||0,transporterName:h.AL||'',transporterId:h.AM||'',transDocNo:h.AN||'',transDocDate:fd(h.AO),
+   vehicleNo:h.AP||'',vehicleType:h.AQ==='ODC'?'O':'R',mainHsnCode:+top.X,
+   itemList:rows.map((r,i)=>{const t=String(r.AB).split('+');return {itemNo:i+1,productName:r.V,productDesc:r.W,hsnCode:+r.X,quantity:r.Z,qtyUnit:UC[r.Y]||r.Y,taxableAmount:r.AA,sgstRate:+t[0],cgstRate:+t[1],igstRate:+t[2],cessRate:+t[3],cessNonAdvol:+t[4]};})};
+}
+function dlJson(){
+  try{
+    const data=JSON.stringify({version:'1.0.0918',billLists:bills.map(macroBill)},null,2);
+    const u=URL.createObjectURL(new Blob([data],{type:'application/json'})),l=document.createElement('a');
+    l.href=u;l.download='E-WayBill_JSON.json';document.body.appendChild(l);l.click();l.remove();setTimeout(()=>URL.revokeObjectURL(u),2000);
+    $('#msg').textContent='Downloaded E-WayBill_JSON.json';
+  }catch(e){$('#msg').textContent='Could not create JSON: '+e.message;}
+}
 let TPL=null;
 async function loadTpl(){try{const r=await fetch('template.xlsm');if(r.ok)TPL=await r.arrayBuffer();}catch(e){}}
 loadTpl();
@@ -184,11 +208,7 @@ dz.addEventListener('drop',e=>add([...e.dataTransfer.files].filter(f=>/pdf$/i.te
 $('#out').addEventListener('input',e=>{const t=e.target;if(t.dataset.k){const b=bills[t.dataset.n];b[t.dataset.k]=t.value;if(/^to/.test(t.dataset.k))saveProf(b);}});
 $('#out').addEventListener('change',()=>render());
 $('#out').addEventListener('click',e=>{const t=e.target;if(t.dataset.rm){bills.splice(+t.dataset.rm,1);render();}if(t.dataset.dl){const b=bills[+t.dataset.dl];dl([b],'EWB_'+b.docNo.replace(/\W/g,'')+'.xlsm');}});
-$('#json').onclick=()=>{
-  const data=JSON.stringify({version:'1.0.0621',billLists:bills.map(build)},null,1);
-  const u=URL.createObjectURL(new Blob([data],{type:'application/json'})),l=document.createElement('a');
-  l.href=u;l.download='EWB_'+bills.length+'_BOE.json';document.body.appendChild(l);l.click();l.remove();setTimeout(()=>URL.revokeObjectURL(u),2000);
-  $('#msg').textContent='JSON download started (.json file).';};
+$('#json').onclick=()=>dlJson();
 $('#all').onclick=()=>dl(bills,'EWB_Prepared_'+bills.length+'_BOE.xlsm');
 $('#tpl').onchange=async e=>{const f=e.target.files[0];if(f){TPL=await f.arrayBuffer();$('#msg').textContent='Template set: '+f.name;}};
 $('#disp').innerHTML=Object.keys(ST).map(s=>`<option ${s===S.disp?'selected':''}>${s}</option>`).join('');
