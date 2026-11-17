@@ -57,8 +57,8 @@ function parseBOE(pages){
 }
 
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-let S={disp:'DELHI',dist:20,tid:'',tname:'',veh:'',src:'hawb',gstin:'',mode:'rate',tdate:'today',dpin:'110037'},bills=[];
-try{Object.assign(S,JSON.parse(localStorage.getItem('ewb_set')||'{}'))}catch(e){}
+let S={disp:'DELHI',dist:20,tid:'',tname:'',veh:'',src:'hawb',gstin:'',mode:'rate',tdate:'today',dpin:'999999'},bills=[];
+try{Object.assign(S,JSON.parse(localStorage.getItem('ewb_set')||'{}'));if(S.dpin==='110037')S.dpin='999999';}catch(e){}
 const save=()=>{try{localStorage.setItem('ewb_set',JSON.stringify(S))}catch(e){}};
 const prof=g=>{try{return JSON.parse(localStorage.getItem('ewb_p_'+g)||'null')}catch(e){return null}};
 const saveProf=b=>{try{localStorage.setItem('ewb_p_'+b.gstin,JSON.stringify({toName:b.toName,toAddr:b.toAddr,toPlace:b.toPlace,toPin:b.toPin}))}catch(e){}};
@@ -87,7 +87,7 @@ function warns(b,j){
   if(!/^[A-Za-z0-9\-\/.]{1,16}$/.test(b.docNo))w.push('Doc No must be up to 16 characters: letters, numbers, - / . only');
   if(!/^\d{2}\/\d{2}\/\d{4}$/.test(b.date))w.push('Date must be in DD/MM/YYYY format');
   if(!/^\d{6}$/.test(b.toPin))w.push('Consignee pincode must be 6 digits');
-  if(!/^\d{6}$/.test(String(S.dpin)))w.push('Dispatch pincode must be 6 digits and belong to the Dispatch State');
+  if(!/^\d{6}$/.test(String(S.dpin)))w.push('Dispatch pincode must be 6 digits (999999 is used with Dispatch From_State OTHER TERRITORY)');
   if(!b.items.length)w.push('No items found');
   if(b.items.some(i=>!i.unit||i.unit==='undefined'))w.push('Unit missing for one or more items');
   return w;
@@ -120,7 +120,7 @@ function exRows(b){
   const j=build(b),duty=isNaN(b.duty)?b.items.reduce((a,i)=>a+i.igst+i.oth,0):b.duty;
   const diff=r2(duty-b.items.reduce((a,i)=>a+i.igst+i.oth,0));
   const stn=STN[j.toStateCode]||'HARYANA';
-  const h={A:'Inward',B:'Import',C:'Bill of Entry',D:b.docNo,E:b.date,F:'Bill From-Dispatch From',G:nm(b.fromName),H:'URP',I:clean(b.fromAddr).slice(0,120),K:clean(b.fromPlace),L:+S.dpin||110037,M:'OTHER COUNTRIES',N:S.disp,
+  const h={A:'Inward',B:'Import',C:'Bill of Entry',D:b.docNo,E:b.date,F:'Bill From-Dispatch From',G:nm(b.fromName),H:'URP',I:clean(b.fromAddr).slice(0,120),K:clean(b.fromPlace),L:+S.dpin||999999,M:'OTHER COUNTRIES',N:(+S.dpin===999999?'OTHER TERRITORY':S.disp),
    O:nm(b.toName),P:b.gstin,Q:clean(b.toAddr).slice(0,120),S:clean(b.toPlace),T:+b.toPin,U:stn,V:stn,AL:+S.dist||0};
   if(S.veh){h.AK='Road';h.AQ=S.veh.toUpperCase().replace(/[^A-Z0-9]/g,'');h.AR='Regular';}
   if(S.tdate==='today'){const d=new Date(),p=n=>String(n).padStart(2,'0');h.AP=p(d.getDate())+'/'+p(d.getMonth()+1)+'/'+d.getFullYear();}
@@ -153,7 +153,7 @@ async function fillTemplate(buf,list){
   for(const k of Object.keys(z.files)){const e=z.files[k];if(!e.dir)z2.file(k,await e.async('uint8array'),{date:e.date,createFolders:false});}
   return z2.generateAsync({type:'uint8array',compression:'DEFLATE'});
 }
-const SC=n=>n==='OTHER COUNTRIES'?99:(ST[String(n||'').toUpperCase()]||0);
+const SC=n=>n==='OTHER COUNTRIES'?99:n==='OTHER TERRITORY'?97:(ST[String(n||'').toUpperCase()]||0);
 const fd=d=>{if(!d)return '';const p=String(d).replace(/-/g,'/').split('/');return p[0].padStart(2,'0')+'/'+p[1].padStart(2,'0')+'/'+p[2];};
 // Same JSON that the Excel "Prepare JSON" macro writes (version 1.0.0918, E-WayBill_JSON.json)
 function macroBill(b){
@@ -217,5 +217,5 @@ $('#disp').innerHTML=Object.keys(ST).map(s=>`<option ${s===S.disp?'selected':''}
 [['gstin','gstin'],['disp','disp'],['dist','dist'],['tid','tid'],['tname','tname'],['veh','veh'],['src','src'],['mode','mode'],['tdate','tdate'],['dpin','dpin']].forEach(([id,k])=>{const el=$('#'+id);el.value=S[k]??'';el.addEventListener('input',()=>{S[k]=el.value;save();});el.addEventListener('change',()=>render());});
 
 
-$('#clr').onclick=()=>{try{localStorage.clear()}catch(e){}bills=[];S={disp:'DELHI',dist:20,tid:'',tname:'',veh:'',src:'hawb',gstin:'',mode:'rate',tdate:'today',dpin:'110037'};['gstin','dist','tid','tname','veh'].forEach(i=>$('#'+i).value='');$('#fb textarea').value='';$('#fb').hidden=true;render();$('#msg').textContent='Saved data and loaded BOEs cleared.';};
+$('#clr').onclick=()=>{try{localStorage.clear()}catch(e){}bills=[];S={disp:'DELHI',dist:20,tid:'',tname:'',veh:'',src:'hawb',gstin:'',mode:'rate',tdate:'today',dpin:'999999'};['gstin','dist','tid','tname','veh'].forEach(i=>$('#'+i).value='');$('#fb textarea').value='';$('#fb').hidden=true;render();$('#msg').textContent='Saved data and loaded BOEs cleared.';};
 window.addEventListener('pagehide',()=>{bills=[];});
